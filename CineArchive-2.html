@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>CineArchive</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+:root{--film:#c8a96e;--film-dim:#8a6f3e;--noir:#050508}
+html,body{background:var(--noir);color:#e8e4dc;font-family:'DM Sans',sans-serif;overscroll-behavior:none;height:100%;overflow:hidden}
+body::after{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");pointer-events:none;z-index:9998;opacity:.4}
+
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh}
+.view{display:none;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.view.active{display:block}
+
+.app-header{background:rgba(10,10,20,.85);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(200,169,110,.12);padding:12px 16px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.logo{font-family:'Playfair Display',serif;font-size:1.25rem;color:var(--film);letter-spacing:.03em;line-height:1}
+.logo-sub{font-size:.55rem;letter-spacing:.22em;text-transform:uppercase;color:#444;margin-top:1px}
+.live-badge{display:flex;align-items:center;gap:5px;font-size:.6rem;color:#4ade80;letter-spacing:.1em}
+.live-dot{width:6px;height:6px;border-radius:50%;background:#4ade80;box-shadow:0 0 6px #4ade80;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+.hero{position:relative;height:54vw;min-height:210px;max-height:300px;overflow:hidden;flex-shrink:0;background:#0e0e16}
+.hero-bg{position:absolute;inset:0;background-size:cover;background-position:center;filter:saturate(.55) brightness(.45)}
+.hero-grad{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(5,5,8,.2) 0%,rgba(5,5,8,.08) 35%,rgba(5,5,8,.92) 80%,#050508 100%)}
+.hero-content{position:absolute;bottom:14px;left:16px;right:16px}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.6rem;font-weight:500;letter-spacing:.09em;text-transform:uppercase;background:rgba(200,169,110,.15);color:var(--film);border:1px solid rgba(200,169,110,.25)}
+.hero-title{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:700;line-height:1.15;margin:6px 0 10px;color:#fff;text-shadow:0 2px 18px rgba(0,0,0,.95);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+.sec-title{font-family:'Playfair Display',serif;font-size:1.05rem;color:#f0ece4;display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.sec-title::after{content:'';flex:1;height:1px;background:linear-gradient(to right,rgba(200,169,110,.3),transparent)}
+
+.poster-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.poster-card{position:relative;border-radius:8px;overflow:hidden;cursor:pointer;aspect-ratio:2/3;background:#0e0e16;transition:transform .2s cubic-bezier(.22,.68,0,1.2)}
+.poster-card:active{transform:scale(.95)}
+.poster-card img{width:100%;height:100%;object-fit:cover;display:block}
+.poster-over{position:absolute;inset:0;background:linear-gradient(to top,rgba(5,5,8,.95) 0%,rgba(5,5,8,.25) 55%,transparent 100%);display:flex;flex-direction:column;justify-content:flex-end;padding:8px}
+.p-title{font-family:'Playfair Display',serif;font-size:.72rem;line-height:1.2;color:#f0ece4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.p-year{font-size:.6rem;color:var(--film);margin-top:2px;letter-spacing:.07em}
+
+.snap-row{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:4px}
+.snap-row::-webkit-scrollbar{display:none}
+.snap-card{scroll-snap-align:start;flex-shrink:0;width:108px;height:162px}
+
+.btn{display:flex;align-items:center;justify-content:center;gap:7px;padding:12px 16px;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:500;cursor:pointer;border:none;min-height:48px;text-decoration:none;transition:all .18s;width:100%}
+.btn-gold{background:var(--film);color:#050508}
+.btn-gold:active{background:var(--film-dim);transform:scale(.97)}
+.btn-dim{background:rgba(255,255,255,.08);color:#e8e4dc;border:1px solid rgba(255,255,255,.12)}
+.btn-dim:active{background:rgba(255,255,255,.14)}
+.btn-sm{padding:9px 12px;font-size:.72rem;min-height:40px}
+.btn[disabled]{opacity:.4;pointer-events:none}
+
+.search-wrap{position:relative;margin-bottom:18px}
+.search-wrap svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);pointer-events:none;color:#555}
+.search-input{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(200,169,110,.18);border-radius:12px;padding:13px 14px 13px 42px;color:#f0ece4;font-family:'DM Sans',sans-serif;font-size:.88rem;outline:none;transition:border-color .2s;min-height:48px}
+.search-input:focus{border-color:rgba(200,169,110,.45);background:rgba(255,255,255,.08)}
+.search-input::placeholder{color:#454545}
+
+#player{position:fixed;inset:0;z-index:500;background:#000;display:flex;flex-direction:column;transform:translateY(100%);transition:transform .38s cubic-bezier(.32,.72,0,1)}
+#player.open{transform:translateY(0)}
+#vid{width:100%;background:#000;display:block;flex-shrink:0;max-height:56vw;min-height:200px}
+.player-body{flex:1;overflow-y:auto;padding:18px 16px 30px;background:var(--noir)}
+.player-back{position:absolute;top:10px;left:10px;z-index:10;width:38px;height:38px;border-radius:50%;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff}
+
+.dl-item{display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);margin-bottom:10px}
+.dl-thumb{width:50px;height:74px;border-radius:5px;object-fit:cover;flex-shrink:0;background:#0e0e16}
+
+.bottom-nav{height:60px;flex-shrink:0;background:rgba(8,8,14,.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid rgba(200,169,110,.15);display:flex;align-items:center;justify-content:space-around;padding-bottom:env(safe-area-inset-bottom)}
+.nav-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 20px;min-height:48px;cursor:pointer;border:none;background:none;color:#555;transition:color .2s;font-family:'DM Sans',sans-serif;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase}
+.nav-btn.active{color:var(--film)}
+.nav-btn svg{width:20px;height:20px}
+
+#toast{position:fixed;bottom:75px;left:50%;transform:translateX(-50%) translateY(16px);background:rgba(200,169,110,.95);color:#050508;padding:9px 16px;border-radius:18px;font-size:.78rem;font-weight:500;z-index:9000;opacity:0;transition:all .28s ease;white-space:nowrap;pointer-events:none;max-width:90vw}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.skel{background:linear-gradient(90deg,#0e0e16 25%,#1a1a24 50%,#0e0e16 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:8px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+.fade{animation:fadeUp .4s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+.empty-state{text-align:center;padding:50px 20px;color:#3a3a4a}
+.empty-state svg{margin:0 auto 12px;display:block;opacity:.35}
+.empty-state p{font-size:.82rem}
+
+.spinner{width:28px;height:28px;border:2px solid rgba(200,169,110,.2);border-top-color:var(--film);border-radius:50%;animation:spin 1s linear infinite;margin:20px auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="toast"></div>
+
+<!-- PLAYER -->
+<div id="player">
+  <div style="position:relative;background:#000;flex-shrink:0">
+    <button class="player-back" onclick="closePlayer()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M5 12l7 7M5 12l7-7"/></svg>
+    </button>
+    <video id="vid" controls playsinline webkit-playsinline preload="metadata"></video>
+  </div>
+  <div class="player-body">
+    <h2 id="p-title" style="font-family:'Playfair Display',serif;font-size:1.3rem;line-height:1.2;margin-bottom:8px;color:#f0ece4"></h2>
+    <div id="p-meta" style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px"></div>
+    <p id="p-desc" style="font-size:.82rem;line-height:1.65;color:#8884a0;margin-bottom:18px"></p>
+    <div id="p-loading" style="display:none;text-align:center;padding:10px;color:#666;font-size:.8rem">
+      <div class="spinner"></div>
+      Finding playable video…
+    </div>
+    <a id="p-dl" class="btn btn-gold" href="#" target="_blank" rel="noopener" style="margin-bottom:10px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download MP4
+    </a>
+    <a id="p-archive" href="#" target="_blank" rel="noopener" class="btn btn-dim">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      View on Internet Archive
+    </a>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <!-- HOME -->
+  <div class="view active" id="v-home">
+    <div class="app-header">
+      <div><div class="logo">CineArchive</div><div class="logo-sub">Public Domain Cinema</div></div>
+      <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+    </div>
+
+    <div class="hero" id="hero">
+      <div class="hero-bg" id="hero-bg"></div>
+      <div class="hero-grad"></div>
+      <div class="hero-content">
+        <div class="badge">Featured Film</div>
+        <div id="hero-title" class="hero-title">Loading…</div>
+        <button class="btn btn-gold" id="hero-btn" style="padding:10px 18px;font-size:.78rem;min-height:42px;width:auto" onclick="openHero()" disabled>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Watch Now
+        </button>
+      </div>
+    </div>
+
+    <div style="padding:0 14px 80px">
+      <div style="margin:18px 0 14px">
+        <div class="sec-title">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="var(--film)"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          Featured Films
+        </div>
+        <div class="snap-row" id="snap-row">
+          <div class="snap-card skel"></div>
+          <div class="snap-card skel"></div>
+          <div class="snap-card skel"></div>
+          <div class="snap-card skel"></div>
+        </div>
+      </div>
+      <div style="margin-top:22px">
+        <div class="sec-title">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--film)" stroke-width="2"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="2" y="14" width="8" height="8" rx="1"/><rect x="14" y="14" width="8" height="8" rx="1"/></svg>
+          Browse Collection
+        </div>
+        <div class="poster-grid" id="main-grid">
+          <div class="skel" style="aspect-ratio:2/3"></div>
+          <div class="skel" style="aspect-ratio:2/3"></div>
+          <div class="skel" style="aspect-ratio:2/3"></div>
+          <div class="skel" style="aspect-ratio:2/3"></div>
+          <div class="skel" style="aspect-ratio:2/3"></div>
+          <div class="skel" style="aspect-ratio:2/3"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SEARCH -->
+  <div class="view" id="v-search">
+    <div style="padding:16px;padding-bottom:80px">
+      <div style="font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--film);margin-bottom:14px">Search</div>
+      <div class="search-wrap">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="search" id="search-box" class="search-input" placeholder="Search films…" oninput="doSearch(this.value)" autocomplete="off">
+      </div>
+      <div id="search-hint" class="empty-state">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <p>Search the Internet Archive collection</p>
+      </div>
+      <div class="poster-grid" id="search-results" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- DOWNLOADS -->
+  <div class="view" id="v-dl">
+    <div style="padding:16px;padding-bottom:80px">
+      <div style="font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--film);margin-bottom:4px">Downloads</div>
+      <div style="font-size:.72rem;color:#444;margin-bottom:18px">Recently opened films</div>
+      <div id="dl-list"></div>
+      <div id="dl-empty" class="empty-state">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <p>Open a film to add it here</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- NAV -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" id="nb-home" onclick="showView('home')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Home
+    </button>
+    <button class="nav-btn" id="nb-search" onclick="showView('search')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Search
+    </button>
+    <button class="nav-btn" id="nb-dl" onclick="showView('dl')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Downloads
+    </button>
+  </nav>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// LIVE API — uses cors.archive.org (CORS-enabled mirror)
+// Every identifier comes from the live API, so nothing is stale
+// Video URLs resolved per-film via metadata API to find real files
+// ═══════════════════════════════════════════════════════════════
+const API_BASE = 'https://cors.archive.org';  // CORS-friendly mirror
+const DL_BASE  = 'https://archive.org/download';
+
+let FILMS = [];        // all loaded films
+let heroFilm = null;
+let recentDownloads = [];
+try { recentDownloads = JSON.parse(localStorage.getItem('ca_dl')||'[]'); } catch(e){}
+
+// ─── Fetch the main catalogue ─────────────────────────────────
+async function fetchCatalogue() {
+  const q = 'collection:(feature_films) AND mediatype:movies AND format:(h.264 OR mp4)';
+  const params = new URLSearchParams({
+    q,
+    'fl[]': 'identifier',
+    'fl[]': 'title',
+    'fl[]': 'year',
+    'fl[]': 'description',
+    'fl[]': 'subject',
+    sort: 'downloads desc',
+    rows: '60',
+    output: 'json',
+  });
+  // URLSearchParams collapses duplicate keys, so manually build fl fields
+  const url = `${API_BASE}/advancedsearch.php?` +
+    `q=${encodeURIComponent(q)}` +
+    `&fl[]=identifier&fl[]=title&fl[]=year&fl[]=description&fl[]=subject` +
+    `&sort=downloads+desc&rows=60&output=json`;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const docs = data?.response?.docs || [];
+    return docs.map(d => ({
+      id: d.identifier,
+      title: d.title || 'Untitled',
+      year: String(d.year || ''),
+      desc: Array.isArray(d.description) ? d.description[0] : (d.description || ''),
+      subject: Array.isArray(d.subject) ? d.subject.slice(0,3).join(', ') : (d.subject || ''),
+      thumb: `https://archive.org/services/img/${d.identifier}`,
+      archiveUrl: `https://archive.org/details/${d.identifier}`,
+    })).filter(f => f.id && f.title);
+  } catch (err) {
+    console.error('Catalogue fetch failed:', err);
+    return [];
+  }
+}
+
+// ─── Search via API ────────────────────────────────────────────
+async function searchCatalogue(query) {
+  const q = `(title:(${query}) OR description:(${query})) AND collection:(feature_films) AND mediatype:movies AND format:(h.264 OR mp4)`;
+  const url = `${API_BASE}/advancedsearch.php?` +
+    `q=${encodeURIComponent(q)}` +
+    `&fl[]=identifier&fl[]=title&fl[]=year&fl[]=description&fl[]=subject` +
+    `&sort=downloads+desc&rows=30&output=json`;
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    const docs = data?.response?.docs || [];
+    return docs.map(d => ({
+      id: d.identifier,
+      title: d.title || 'Untitled',
+      year: String(d.year || ''),
+      desc: Array.isArray(d.description) ? d.description[0] : (d.description || ''),
+      subject: Array.isArray(d.subject) ? d.subject.slice(0,3).join(', ') : (d.subject || ''),
+      thumb: `https://archive.org/services/img/${d.identifier}`,
+      archiveUrl: `https://archive.org/details/${d.identifier}`,
+    })).filter(f => f.id && f.title);
+  } catch (err) {
+    console.error('Search failed:', err);
+    return [];
+  }
+}
+
+// ─── Resolve actual .mp4 URL for a film ────────────────────────
+const videoUrlCache = new Map();
+async function resolveVideoUrl(identifier) {
+  if (videoUrlCache.has(identifier)) return videoUrlCache.get(identifier);
+
+  try {
+    const res = await fetch(`${API_BASE}/metadata/${identifier}`);
+    const data = await res.json();
+    const files = data?.files || [];
+
+    // Priority: h.264 mp4 → any mp4 → ogv → webm
+    const mp4H264 = files.find(f =>
+      f.name && f.name.toLowerCase().endsWith('.mp4') &&
+      (f.format||'').toLowerCase().includes('h.264')
+    );
+    const anyMp4  = files.find(f => f.name && f.name.toLowerCase().endsWith('.mp4'));
+    const ogv     = files.find(f => f.name && f.name.toLowerCase().endsWith('.ogv'));
+    const webm    = files.find(f => f.name && f.name.toLowerCase().endsWith('.webm'));
+
+    const chosen = mp4H264 || anyMp4 || ogv || webm;
+    if (chosen) {
+      const url = `${DL_BASE}/${identifier}/${encodeURIComponent(chosen.name)}`;
+      videoUrlCache.set(identifier, url);
+      return url;
+    }
+  } catch (err) {
+    console.warn('Metadata fetch failed:', identifier, err);
+  }
+  return null;
+}
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+async function init() {
+  const films = await fetchCatalogue();
+  if (!films.length) {
+    toast('Could not reach Internet Archive. Check your connection.');
+    return;
+  }
+  FILMS = films;
+
+  // Pick hero from top 8 films that have a cached thumbnail
+  heroFilm = films[Math.floor(Math.random() * Math.min(8, films.length))];
+  setHero(heroFilm);
+
+  buildSnapRow(films.slice(0, 12));
+  buildGrid(films, 'main-grid');
+}
+
+function setHero(film) {
+  const img = new Image();
+  img.onload = () => {
+    document.getElementById('hero-bg').style.backgroundImage = `url(${film.thumb})`;
+  };
+  img.src = film.thumb;
+  document.getElementById('hero-title').textContent = film.title + (film.year ? ` (${film.year})` : '');
+  document.getElementById('hero-btn').disabled = false;
+}
+
+function openHero() { if (heroFilm) openFilm(heroFilm); }
+
+// ═══════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════
+function buildSnapRow(films) {
+  const row = document.getElementById('snap-row');
+  row.innerHTML = '';
+  films.forEach((f, i) => {
+    const el = document.createElement('div');
+    el.className = 'snap-card poster-card fade';
+    el.style.animationDelay = `${i * .04}s`;
+    el.innerHTML = posterInner(f);
+    el.onclick = () => openFilm(f);
+    row.appendChild(el);
+  });
+}
+
+function buildGrid(films, cid) {
+  const g = document.getElementById(cid);
+  g.innerHTML = '';
+  if (!films.length) {
+    g.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#3a3a4a;font-size:.82rem">No results found</div>';
+    return;
+  }
+  films.forEach((f, i) => {
+    const el = document.createElement('div');
+    el.className = 'poster-card fade';
+    el.style.animationDelay = `${Math.min(i, 12) * .03}s`;
+    el.innerHTML = posterInner(f);
+    el.onclick = () => openFilm(f);
+    g.appendChild(el);
+  });
+}
+
+function posterInner(f) {
+  return `<img src="${f.thumb}" alt="${esc(f.title)}" loading="lazy" onerror="this.style.opacity='.12';this.onerror=null">
+  <div class="poster-over">
+    <div class="p-title">${esc(f.title)}</div>
+    <div class="p-year">${f.year || ''}</div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════
+// SEARCH
+// ═══════════════════════════════════════
+let st;
+function doSearch(v) {
+  clearTimeout(st);
+  const hint = document.getElementById('search-hint');
+  const res = document.getElementById('search-results');
+  if (!v.trim()) { hint.style.display='block'; res.style.display='none'; res.innerHTML=''; return; }
+  hint.style.display = 'none';
+  res.style.display = 'grid';
+
+  // Immediate local filter for responsiveness
+  const q = v.toLowerCase();
+  const local = FILMS.filter(f =>
+    f.title.toLowerCase().includes(q) ||
+    f.year.includes(q) ||
+    (f.subject && f.subject.toLowerCase().includes(q))
+  );
+  buildGrid(local, 'search-results');
+
+  // Then enrich with live API results
+  st = setTimeout(async () => {
+    const remote = await searchCatalogue(v);
+    const merged = [...local];
+    remote.forEach(r => { if (!merged.find(m => m.id === r.id)) merged.push(r); });
+    buildGrid(merged, 'search-results');
+  }, 500);
+}
+
+// ═══════════════════════════════════════
+// OPEN FILM
+// ═══════════════════════════════════════
+async function openFilm(film) {
+  const vid = document.getElementById('vid');
+  const loading = document.getElementById('p-loading');
+  const dlBtn = document.getElementById('p-dl');
+
+  vid.pause();
+  vid.removeAttribute('src');
+  vid.load();
+  vid.poster = film.thumb;
+
+  document.getElementById('p-title').textContent = film.title;
+  document.getElementById('p-desc').textContent = cleanDesc(film.desc) || 'A classic public domain film from the Internet Archive.';
+  document.getElementById('p-archive').href = film.archiveUrl;
+
+  const meta = document.getElementById('p-meta');
+  meta.innerHTML = '';
+  if (film.year) meta.innerHTML += `<span class="badge">${film.year}</span>`;
+  if (film.subject) meta.innerHTML += `<span class="badge">${esc(film.subject.split(',')[0].trim())}</span>`;
+  meta.innerHTML += `<span class="badge">Public Domain</span>`;
+
+  // Show player immediately
+  document.getElementById('player').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  history.pushState({player: true}, '');
+
+  // Track before video resolves
+  recentDownloads = recentDownloads.filter(d => d.id !== film.id);
+  recentDownloads.unshift(film);
+  if (recentDownloads.length > 24) recentDownloads = recentDownloads.slice(0, 24);
+  try { localStorage.setItem('ca_dl', JSON.stringify(recentDownloads)); } catch(e) {}
+
+  // Resolve the actual video file URL
+  loading.style.display = 'block';
+  dlBtn.setAttribute('aria-busy', 'true');
+  dlBtn.style.opacity = '.5';
+
+  const videoUrl = await resolveVideoUrl(film.id);
+
+  loading.style.display = 'none';
+  dlBtn.removeAttribute('aria-busy');
+  dlBtn.style.opacity = '';
+
+  if (videoUrl) {
+    vid.src = videoUrl;
+    vid.load();
+    dlBtn.href = videoUrl;
+  } else {
+    toast('Video file not available');
+    dlBtn.href = film.archiveUrl;
+  }
+}
+
+function closePlayer() {
+  document.getElementById('player').classList.remove('open');
+  document.getElementById('vid').pause();
+  document.body.style.overflow = '';
+}
+
+// ═══════════════════════════════════════
+// DOWNLOADS VIEW
+// ═══════════════════════════════════════
+function renderDownloads() {
+  const list = document.getElementById('dl-list');
+  const empty = document.getElementById('dl-empty');
+  if (!recentDownloads.length) { list.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+  list.innerHTML = '';
+  recentDownloads.forEach(f => {
+    const el = document.createElement('div');
+    el.className = 'dl-item';
+    el.innerHTML = `
+      <img class="dl-thumb" src="${f.thumb}" alt="${esc(f.title)}" onerror="this.style.opacity='.15'">
+      <div style="flex:1;min-width:0">
+        <div style="font-family:'Playfair Display',serif;font-size:.88rem;color:#f0ece4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:3px">${esc(f.title)}</div>
+        <div style="font-size:.68rem;color:var(--film);margin-bottom:10px">${f.year || ''}</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-gold btn-sm" onclick='playDl("${f.id}")' style="width:auto">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>Play
+          </button>
+          <a class="btn btn-dim btn-sm" href="${f.archiveUrl}" target="_blank" rel="noopener" style="width:auto">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>Archive
+          </a>
+        </div>
+      </div>`;
+    list.appendChild(el);
+  });
+}
+
+function playDl(id) {
+  const f = FILMS.find(x => x.id === id) || recentDownloads.find(x => x.id === id);
+  if (f) openFilm(f);
+}
+
+// ═══════════════════════════════════════
+// NAV
+// ═══════════════════════════════════════
+function showView(name) {
+  ['home','search','dl'].forEach(v => {
+    document.getElementById(`v-${v}`).classList.toggle('active', v === name);
+    document.getElementById(`nb-${v}`).classList.toggle('active', v === name);
+  });
+  if (name === 'dl') renderDownloads();
+  if (name === 'search') setTimeout(() => document.getElementById('search-box').focus(), 80);
+}
+
+// ═══════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════
+let tt;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), 3000);
+}
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function cleanDesc(d) {
+  return String(d || '').replace(/<[^>]+>/g, '').substring(0, 400);
+}
+
+window.addEventListener('popstate', () => {
+  if (document.getElementById('player').classList.contains('open')) closePlayer();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePlayer(); });
+
+init();
+</script>
+</body>
+</html>
