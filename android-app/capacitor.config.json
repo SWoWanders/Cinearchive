@@ -1,0 +1,9 @@
+{
+  "appId": "io.github.swowanders.cinearchive",
+  "appName": "CineArchive",
+  "webDir": "www",
+  "backgroundColor": "#050508",
+  "android": {
+    "allowMixedContent": false
+  }
+}
